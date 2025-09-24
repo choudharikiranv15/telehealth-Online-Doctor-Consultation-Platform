@@ -1,0 +1,113 @@
+# TeleHealth Platform - Git Ignore File
+
+# Environment and Configuration
+config.php.local
+.env
+.env.local
+.env.production
+
+# Database
+*.sql.bak
+database_backup_*
+*.dump
+
+# Logs
+logs/
+*.log
+error.log
+access.log
+
+# Cache and temporary files
+cache/
+tmp/
+temp/
+*.tmp
+*.cache
+
+# Session files
+sessions/
+*.sess
+
+# Upload directories (keep structure, ignore content)
+assets/images/profiles/*
+!assets/images/profiles/.gitkeep
+uploads/
+!uploads/.gitkeep
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Composer (if used)
+vendor/
+composer.lock
+
+# Node modules (if used)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build files
+dist/
+build/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Security keys and certificates
+*.key
+*.pem
+*.crt
+*.p12
+ssl/
+
+# Local development tools
+.php_cs
+.php_cs.cache
+phpunit.xml
+.phpunit.result.cache
+
+# Documentation build files
+docs/_build/
+
+# IDE specific files
+.vscode/settings.json
+.idea/workspace.xml
+
+# Local XAMPP/WAMP specific
+.htaccess.local
+wp-config-local.php
+
+# Test files that might get recreated
+*test*.php
+*debug*.php
+*temp*.php
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Database dumps
+*.sql.gz
+*.sql.zip
+
+# Local configuration overrides
+local_config.php
+dev_config.php
