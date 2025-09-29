@@ -99,7 +99,6 @@ require_once '../includes/header.php';
                 </div>
                 <div class="col-md-6">
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item"><strong>Rating:</strong> <?php echo $doctor['rating'] ? number_format($doctor['rating'], 1) . ' / 5.0' : 'N/A'; ?></li>
                         <li class="list-group-item"><strong>Consultation Fee:</strong> ₹<?php echo $doctor['consultation_fee'] ? number_format($doctor['consultation_fee'], 2) : '0.00'; ?></li>
                         <li class="list-group-item"><strong>Member Since:</strong> <?php echo date('M d, Y', strtotime($doctor['created_at'])); ?></li>
                     </ul>
