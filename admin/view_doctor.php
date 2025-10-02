@@ -108,6 +108,50 @@ require_once '../includes/header.php';
                 <h5>Biography</h5>
                 <p class="text-muted"><?php echo !empty($doctor['bio']) ? nl2br(htmlspecialchars($doctor['bio'])) : 'No biography provided.'; ?></p>
             </div>
+
+            <hr>
+            <h4>Availability <small class="text-muted">(View Only)</small></h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">Working Hours</h6>
+                            <p class="mb-1">
+                                <i class="fas fa-clock text-primary me-2"></i>
+                                <strong>Start:</strong> <?php echo !empty($doctor['availability_start']) ? date('h:i A', strtotime($doctor['availability_start'])) : 'Not set'; ?>
+                            </p>
+                            <p class="mb-0">
+                                <i class="fas fa-clock text-danger me-2"></i>
+                                <strong>End:</strong> <?php echo !empty($doctor['availability_end']) ? date('h:i A', strtotime($doctor['availability_end'])) : 'Not set'; ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">Working Days</h6>
+                            <?php
+                            $available_days = $doctor['available_days'] ?? 'monday,tuesday,wednesday,thursday,friday,saturday';
+                            $days_array = explode(',', $available_days);
+                            $all_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+                            foreach ($all_days as $day):
+                                $is_available = in_array(trim($day), array_map('trim', $days_array));
+                            ?>
+                                <span class="badge <?php echo $is_available ? 'bg-success' : 'bg-secondary'; ?> me-1 mb-1">
+                                    <i class="fas <?php echo $is_available ? 'fa-check' : 'fa-times'; ?> me-1"></i>
+                                    <?php echo ucfirst($day); ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-info mt-3 mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                <small>Only doctors can modify their availability settings through their dashboard.</small>
+            </div>
         </div>
         <div class="card-footer text-end">
             <!-- Action buttons can be added here, e.g., to edit the profile -->

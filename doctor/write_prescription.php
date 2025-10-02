@@ -35,13 +35,27 @@ try {
         FROM appointments a
         JOIN users p ON a.patient_id = p.id
         LEFT JOIN patient_profiles pp ON p.id = pp.user_id
-        WHERE a.id = ? AND a.doctor_id = ? AND a.status = 'completed'
+        WHERE a.id = ? AND a.doctor_id = ?
     ");
     $stmt->execute([$appointment_id, $doctor_id]);
     $appointment = $stmt->fetch();
 
     if (!$appointment) {
-        $_SESSION['error'] = "Appointment not found or not completed.";
+        $_SESSION['error'] = "Appointment not found.";
+        header('Location: ' . getPageUrl('doctor/'));
+        exit();
+    }
+
+    // Check if appointment is missed by patient
+    if ($appointment['status'] === 'missed' && $appointment['missed_by'] === 'patient') {
+        $_SESSION['error'] = "Cannot write prescription - Patient missed the appointment.";
+        header('Location: ' . getPageUrl('doctor/'));
+        exit();
+    }
+
+    // Check if appointment is completed
+    if ($appointment['status'] !== 'completed') {
+        $_SESSION['error'] = "Appointment must be completed before writing a prescription.";
         header('Location: ' . getPageUrl('doctor/'));
         exit();
     }

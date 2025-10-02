@@ -35,16 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $doctor_id
         ]);
 
-        // Update doctor_profiles table
+        // Update doctor_profiles table (excluding availability - only doctors can modify their own availability)
         $stmt = $db->prepare("UPDATE doctor_profiles SET
             specialization_id = ?, specialization = ?, license_number = ?, experience_years = ?,
-            qualification = ?, bio = ?, consultation_fee = ?, languages = ?,
-            availability_start = ?, availability_end = ?, available_days = ?
+            qualification = ?, bio = ?, consultation_fee = ?, languages = ?
             WHERE user_id = ?");
         $stmt->execute([
             $_POST['specialization_id'], $_POST['specialization'], $_POST['license_number'], $_POST['experience_years'],
             $_POST['qualification'], $_POST['bio'], $_POST['consultation_fee'], $_POST['languages'],
-            $_POST['availability_start'], $_POST['availability_end'], $_POST['available_days'],
             $doctor_id
         ]);
 
@@ -219,27 +217,49 @@ require_once '../includes/header.php';
 
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Availability</h5>
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>Availability
+                    <small class="text-muted">(View Only - Doctors manage their own availability)</small>
+                </h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Only doctors can modify their availability settings. Admin can only view this information.
+                </div>
                 <div class="row">
                     <div class="col-md-6">
-                        <label for="availability_start" class="form-label">Start Time</label>
-                        <input type="time" class="form-control" id="availability_start" name="availability_start"
-                               value="<?php echo $doctor['availability_start'] ?? '09:00'; ?>">
+                        <label class="form-label">Start Time</label>
+                        <input type="time" class="form-control"
+                               value="<?php echo $doctor['availability_start'] ?? '09:00'; ?>" readonly disabled>
                     </div>
                     <div class="col-md-6">
-                        <label for="availability_end" class="form-label">End Time</label>
-                        <input type="time" class="form-control" id="availability_end" name="availability_end"
-                               value="<?php echo $doctor['availability_end'] ?? '18:00'; ?>">
+                        <label class="form-label">End Time</label>
+                        <input type="time" class="form-control"
+                               value="<?php echo $doctor['availability_end'] ?? '18:00'; ?>" readonly disabled>
                     </div>
-                    <div class="col-12">
-                        <label for="available_days" class="form-label">Available Days</label>
-                        <input type="text" class="form-control" id="available_days" name="available_days"
-                               value="<?php echo htmlspecialchars($doctor['available_days'] ?? 'monday,tuesday,wednesday,thursday,friday,saturday'); ?>"
-                               placeholder="e.g., monday,tuesday,wednesday,thursday,friday">
-                        <div class="form-text">Enter days separated by commas (lowercase)</div>
+                    <div class="col-12 mt-3">
+                        <label class="form-label">Available Days</label>
+                        <div class="p-3 border rounded bg-light">
+                            <?php
+                            $available_days = $doctor['available_days'] ?? 'monday,tuesday,wednesday,thursday,friday,saturday';
+                            $days_array = explode(',', $available_days);
+                            $all_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+                            foreach ($all_days as $day):
+                                $is_available = in_array(trim($day), array_map('trim', $days_array));
+                            ?>
+                                <span class="badge <?php echo $is_available ? 'bg-success' : 'bg-secondary'; ?> me-2 mb-2">
+                                    <i class="fas <?php echo $is_available ? 'fa-check' : 'fa-times'; ?> me-1"></i>
+                                    <?php echo ucfirst($day); ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="form-text mt-2">
+                            <i class="fas fa-lock me-1"></i>
+                            Doctor can modify this in their dashboard under "Manage Availability"
+                        </div>
                     </div>
                 </div>
             </div>

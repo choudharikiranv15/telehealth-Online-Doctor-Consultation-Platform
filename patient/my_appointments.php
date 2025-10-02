@@ -103,13 +103,20 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                 ?>
                             </td>
                             <td>
-                                <span class="badge bg-<?php 
-                                    echo $appointment['status'] === 'completed' ? 'success' : 
-                                        ($appointment['status'] === 'cancelled' ? 'danger' : 
-                                        ($appointment['status'] === 'confirmed' ? 'primary' : 'warning')); 
+                                <span class="badge bg-<?php
+                                    echo $appointment['status'] === 'completed' ? 'success' :
+                                        ($appointment['status'] === 'cancelled' ? 'secondary' :
+                                        ($appointment['status'] === 'rejected' ? 'danger' :
+                                        ($appointment['status'] === 'missed' ? 'warning' :
+                                        ($appointment['status'] === 'confirmed' ? 'primary' : 'warning'))));
                                 ?>">
                                     <?php echo ucfirst($appointment['status']); ?>
                                 </span>
+                                <?php if ($appointment['status'] === 'missed' && !empty($appointment['missed_by'])): ?>
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-user-times"></i> Missed by: <?php echo ucfirst($appointment['missed_by']); ?>
+                                    </small>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($appointment['status'] === 'pending'): ?>
@@ -142,20 +149,49 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                     <div>
                                         <span class="badge bg-danger">Rejected by Doctor</span>
                                         <?php if (!empty($appointment['rejection_reason'])): ?>
-                                            <br><small class="text-muted mt-1">
-                                                <i class="fas fa-info-circle"></i>
-                                                <strong>Reason:</strong> <?php echo htmlspecialchars($appointment['rejection_reason']); ?>
-                                            </small>
+                                            <br><button type="button" class="btn btn-outline-danger btn-sm mt-2" onclick="showRejectionDetailsModal('<?php echo htmlspecialchars($appointment['rejection_reason'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-info-circle me-1"></i>View Reason
+                                            </button>
                                         <?php endif; ?>
                                     </div>
                                 <?php elseif ($appointment['status'] === 'cancelled'): ?>
                                     <div>
                                         <span class="badge bg-secondary">Cancelled</span>
-                                        <?php if (!empty($appointment['cancellation_reason'])): ?>
+                                        <?php
+                                        // Check if this was a doctor rejection (backward compatibility)
+                                        $rejection_text = !empty($appointment['rejection_reason']) ? $appointment['rejection_reason'] :
+                                                         (!empty($appointment['doctor_notes']) && strpos($appointment['doctor_notes'], 'Rejected:') !== false ? $appointment['doctor_notes'] : '');
+                                        if (!empty($rejection_text)):
+                                        ?>
+                                            <br><button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="showRejectionDetailsModal('<?php echo htmlspecialchars($rejection_text, ENT_QUOTES); ?>')">
+                                                <i class="fas fa-info-circle me-1"></i>View Reason
+                                            </button>
+                                        <?php elseif (!empty($appointment['cancellation_reason'])): ?>
                                             <br><small class="text-muted mt-1">
                                                 <i class="fas fa-info-circle"></i>
                                                 <?php echo htmlspecialchars($appointment['cancellation_reason']); ?>
                                             </small>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif ($appointment['status'] === 'missed'): ?>
+                                    <div>
+                                        <span class="badge bg-warning text-dark">Missed Appointment</span>
+                                        <?php if (!empty($appointment['missed_by'])): ?>
+                                            <br><small class="text-muted mt-1">
+                                                <i class="fas fa-user-times"></i>
+                                                Missed by: <strong><?php echo ucfirst($appointment['missed_by']); ?></strong>
+                                            </small>
+                                            <?php if ($appointment['missed_by'] === 'patient'): ?>
+                                                <br><small class="text-danger">
+                                                    <i class="fas fa-exclamation-triangle"></i>
+                                                    You did not join the video call within the waiting period.
+                                                </small>
+                                            <?php else: ?>
+                                                <br><small class="text-info">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    The doctor did not join the call. Please contact support for a refund.
+                                                </small>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
                                 <?php else: ?>
@@ -358,6 +394,54 @@ function submitRating() {
     .catch(error => {
         document.getElementById('error-message').textContent = 'An error occurred. Please try again.';
         document.getElementById('error-message').classList.remove('d-none');
+    });
+}
+
+function showRejectionDetailsModal(reason) {
+    const modalHtml = `
+        <div class="modal fade" id="rejectionDetailsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title"><i class="fas fa-times-circle me-2"></i>Appointment Rejection Reason</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger mb-0">
+                            <strong>Doctor's Reason:</strong><br>
+                            ${reason.replace(/Rejected:\s*/gi, '')}
+                        </div>
+                        <p class="text-muted mt-3 mb-0">
+                            <small><i class="fas fa-info-circle me-1"></i>You may book a new appointment with this doctor or try another doctor.</small>
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <a href="<?php echo getPageUrl('patient/book_appointment.php'); ?>" class="btn btn-primary">
+                            <i class="fas fa-calendar-plus me-1"></i>Book New Appointment
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('rejectionDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('rejectionDetailsModal'));
+    modal.show();
+
+    // Clean up after modal is hidden
+    document.getElementById('rejectionDetailsModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
     });
 }
 </script>

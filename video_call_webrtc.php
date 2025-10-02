@@ -233,6 +233,9 @@ async function startCall() {
     try {
         updateStatus('Starting camera and microphone...');
 
+        // Track that this user has joined the call
+        await trackUserJoin();
+
         // Get user media
         localStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 1280, height: 720 },
@@ -249,6 +252,9 @@ async function startCall() {
 
         // Simple signaling using polling (for demo)
         startSignaling();
+
+        // Start monitoring for timeouts
+        startTimeoutMonitoring();
 
     } catch (error) {
         console.error('Error accessing media:', error);
@@ -577,8 +583,96 @@ function updateStatus(message) {
     document.getElementById('status').textContent = message;
 }
 
+// Track user join
+async function trackUserJoin() {
+    try {
+        const response = await fetch('api/track_call_join.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                appointment_id: APPOINTMENT_ID
+            })
+        });
+
+        const result = await response.json();
+        console.log('Join tracked:', result);
+
+        if (result.success && result.both_joined) {
+            updateStatus('Both participants connected!');
+        }
+    } catch (error) {
+        console.error('Error tracking join:', error);
+    }
+}
+
+// Monitor for timeout (other user not joining)
+let timeoutCheckInterval;
+function startTimeoutMonitoring() {
+    // Check every 30 seconds
+    timeoutCheckInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`api/track_call_join.php?appointment_id=${APPOINTMENT_ID}`);
+            const result = await response.json();
+
+            if (result.success) {
+                if (result.both_joined) {
+                    // Both joined, stop monitoring
+                    clearInterval(timeoutCheckInterval);
+                    updateStatus('Connected');
+                } else if (result.is_timed_out) {
+                    // Timeout occurred
+                    clearInterval(timeoutCheckInterval);
+
+                    const otherParty = IS_DOCTOR ? 'Patient' : 'Doctor';
+                    const missedBy = result.missed_by;
+
+                    if (missedBy) {
+                        // Mark appointment as missed
+                        await markAppointmentAsMissed(missedBy);
+
+                        const message = IS_DOCTOR && missedBy === 'patient'
+                            ? 'Patient did not join the call. Appointment marked as missed by patient.'
+                            : !IS_DOCTOR && missedBy === 'doctor'
+                            ? 'Doctor did not join the call. Appointment marked as missed by doctor.'
+                            : 'The other participant did not join within the waiting period.';
+
+                        alert(message);
+
+                        // End call and redirect
+                        endCallOnly();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking timeout:', error);
+        }
+    }, 30000); // Check every 30 seconds
+}
+
+// Mark appointment as missed
+async function markAppointmentAsMissed(missedBy) {
+    try {
+        const response = await fetch('api/mark_missed_appointment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                appointment_id: APPOINTMENT_ID,
+                missed_by: missedBy
+            })
+        });
+
+        const result = await response.json();
+        console.log('Missed appointment marked:', result);
+    } catch (error) {
+        console.error('Error marking missed:', error);
+    }
+}
+
 // Clean up on page unload
 window.addEventListener('beforeunload', () => {
+    if (timeoutCheckInterval) {
+        clearInterval(timeoutCheckInterval);
+    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }

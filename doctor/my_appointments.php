@@ -208,6 +208,7 @@ require_once '../includes/header.php';
                     <option value="completed" <?php echo $status_filter === 'completed' ? 'selected' : ''; ?>>Completed</option>
                     <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                     <option value="rejected" <?php echo $status_filter === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
+                    <option value="missed" <?php echo $status_filter === 'missed' ? 'selected' : ''; ?>>Missed</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -286,8 +287,9 @@ require_once '../includes/header.php';
                                         echo $appointment['status'] === 'completed' ? 'success' :
                                             ($appointment['status'] === 'cancelled' ? 'secondary' :
                                             ($appointment['status'] === 'rejected' ? 'danger' :
+                                            ($appointment['status'] === 'missed' ? 'warning' :
                                             ($appointment['status'] === 'confirmed' ? 'primary' :
-                                            ($appointment['status'] === 'reschedule_requested' ? 'info' : 'warning'))));
+                                            ($appointment['status'] === 'reschedule_requested' ? 'info' : 'warning')))));
                                     ?>">
                                         <?php echo ucfirst(str_replace('_', ' ', $appointment['status'])); ?>
                                     </span>
@@ -295,6 +297,11 @@ require_once '../includes/header.php';
                                         <br><small class="text-muted" title="<?php echo htmlspecialchars($appointment['rejection_reason']); ?>">
                                             <i class="fas fa-info-circle"></i>
                                             <?php echo htmlspecialchars(substr($appointment['rejection_reason'], 0, 30)) . (strlen($appointment['rejection_reason']) > 30 ? '...' : ''); ?>
+                                        </small>
+                                    <?php elseif ($appointment['status'] === 'missed' && !empty($appointment['missed_by'])): ?>
+                                        <br><small class="text-muted">
+                                            <i class="fas fa-user-times"></i>
+                                            Missed by: <?php echo ucfirst($appointment['missed_by']); ?>
                                         </small>
                                     <?php endif; ?>
                                 </td>
@@ -342,9 +349,33 @@ require_once '../includes/header.php';
                                         <?php endif; ?>
 
                                         <?php if ($appointment['status'] === 'completed'): ?>
-                                            <a href="create_prescription.php?id=<?php echo $appointment['id']; ?>" class="btn btn-warning btn-sm">
-                                                <i class="fas fa-prescription me-1"></i>Prescription
-                                            </a>
+                                            <?php
+                                            // Check if prescription exists
+                                            $prescription_check = $db->prepare("SELECT id FROM prescriptions WHERE appointment_id = ?");
+                                            $prescription_check->execute([$appointment['id']]);
+                                            $prescription_exists = $prescription_check->fetch();
+                                            ?>
+                                            <?php if ($prescription_exists): ?>
+                                                <a href="view_prescription.php?id=<?php echo $prescription_exists['id']; ?>" class="btn btn-info btn-sm">
+                                                    <i class="fas fa-file-medical me-1"></i>View Prescription
+                                                </a>
+                                            <?php else: ?>
+                                                <a href="write_prescription.php?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <i class="fas fa-prescription me-1"></i>Write Prescription
+                                                </a>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+
+                                        <?php if ($appointment['status'] === 'missed'): ?>
+                                            <?php if ($appointment['missed_by'] === 'patient'): ?>
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-ban me-1"></i>Patient No-Show
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>You Missed Call
+                                                </span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
 
                                         <?php if ($appointment['status'] === 'rejected'): ?>

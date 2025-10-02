@@ -209,11 +209,23 @@ if (!empty($pending_appointments)):
                                             'completed' => 'success',
                                             'cancelled' => 'secondary',
                                             'rejected' => 'danger',
+                                            'missed' => 'warning',
                                             default => 'secondary'
                                         };
                                     ?>">
                                         <?php echo ucfirst($appointment['status']); ?>
                                     </span>
+                                    <?php if ($appointment['status'] === 'rejected' && !empty($appointment['rejection_reason'])): ?>
+                                        <br><small class="text-muted" style="max-width: 200px; display: inline-block;" title="<?php echo htmlspecialchars($appointment['rejection_reason']); ?>">
+                                            <i class="fas fa-info-circle"></i>
+                                            <?php echo htmlspecialchars(substr($appointment['rejection_reason'], 0, 30)) . (strlen($appointment['rejection_reason']) > 30 ? '...' : ''); ?>
+                                        </small>
+                                    <?php elseif ($appointment['status'] === 'missed' && !empty($appointment['missed_by'])): ?>
+                                        <br><small class="text-muted">
+                                            <i class="fas fa-user-times"></i>
+                                            Missed by: <?php echo ucfirst($appointment['missed_by']); ?>
+                                        </small>
+                                    <?php endif; ?>
                                 </td>
                                 <td>₹<?php echo number_format($appointment['consultation_fee'], 0); ?></td>
                                 <td>

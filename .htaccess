@@ -1,8 +1,15 @@
 RewriteEngine On
 
+# Force HTTPS when deployed (Uncomment after enabling SSL/HTTPS)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
 # Handle authorization
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+
+# Prevent directory listing
+Options -Indexes
 
 # Security headers
 <IfModule mod_headers.c>
@@ -22,6 +29,16 @@ RewriteCond %{REQUEST_FILENAME} !-d
     Order allow,deny
     Deny from all
 </Files>
+
+# Protect database directory
+<IfModule mod_rewrite.c>
+    RewriteRule ^database/ - [F,L]
+</IfModule>
+
+# Protect includes directory
+<IfModule mod_rewrite.c>
+    RewriteRule ^includes/ - [F,L]
+</IfModule>
 
 # Enable compression
 <IfModule mod_deflate.c>

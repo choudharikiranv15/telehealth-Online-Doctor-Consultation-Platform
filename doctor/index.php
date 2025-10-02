@@ -207,12 +207,17 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                         <td><?php echo date('M d, Y', strtotime($appointment['appointment_date'])); ?></td>
                                         <td><?php echo date('h:i A', strtotime($appointment['appointment_time'])); ?></td>
                                         <td>
-                                            <span class="badge bg-<?php 
-                                                echo $appointment['status'] === 'completed' ? 'success' : 
-                                                    ($appointment['status'] === 'cancelled' ? 'danger' : 
-                                                    ($appointment['status'] === 'confirmed' ? 'primary' : 'warning')); 
+                                            <span class="badge bg-<?php
+                                                echo $appointment['status'] === 'completed' ? 'success' :
+                                                    ($appointment['status'] === 'cancelled' ? 'secondary' :
+                                                    ($appointment['status'] === 'rejected' ? 'danger' :
+                                                    ($appointment['status'] === 'missed' ? 'warning' :
+                                                    ($appointment['status'] === 'confirmed' ? 'primary' : 'warning'))));
                                             ?>">
                                                 <?php echo ucfirst($appointment['status']); ?>
+                                                <?php if ($appointment['status'] === 'missed' && !empty($appointment['missed_by'])): ?>
+                                                    <br><small>by <?php echo ucfirst($appointment['missed_by']); ?></small>
+                                                <?php endif; ?>
                                             </span>
                                         </td>
                                         <td>
@@ -247,6 +252,8 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                                         <i class="fas fa-prescription-bottle-alt me-1"></i>Write Prescription
                                                     </a>
                                                 <?php endif; ?>
+                                            <?php elseif ($appointment['status'] === 'missed'): ?>
+                                                <span class="badge bg-secondary">No Action Available</span>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
