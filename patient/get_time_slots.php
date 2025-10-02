@@ -15,6 +15,7 @@ $response = ['success' => false, 'timeSlots' => [], 'message' => ''];
 // Get parameters from the URL
 $doctor_id = isset($_GET['doctor_id']) ? (int)$_GET['doctor_id'] : 0;
 $date = isset($_GET['date']) ? $_GET['date'] : '';
+$exclude_appointment_id = isset($_GET['exclude_appointment_id']) ? (int)$_GET['exclude_appointment_id'] : 0;
 
 if (empty($doctor_id) || empty($date)) {
     $response['message'] = 'Doctor ID and date are required.';
@@ -53,8 +54,35 @@ try {
     error_log("DEBUG: Current time: " . date('H:i') . ", Doctor end time: $working_end_time");
 
     // 4. Get all appointments already booked for this doctor on this date.
-    $stmt = $db->prepare("SELECT appointment_time FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND status IN ('pending', 'confirmed')");
-    $stmt->execute([$doctor_id, $date]);
+    // Check both original time slots and requested time slots
+    // Exclude the current appointment if we're rescheduling
+    if ($exclude_appointment_id > 0) {
+        $stmt = $db->prepare("
+            SELECT appointment_time FROM appointments
+            WHERE doctor_id = ? AND appointment_date = ?
+            AND status IN ('pending', 'confirmed', 'reschedule_requested')
+            AND id != ?
+            UNION
+            SELECT requested_time FROM appointments
+            WHERE doctor_id = ? AND requested_date = ?
+            AND status = 'reschedule_requested'
+            AND requested_time IS NOT NULL
+            AND id != ?
+        ");
+        $stmt->execute([$doctor_id, $date, $exclude_appointment_id, $doctor_id, $date, $exclude_appointment_id]);
+    } else {
+        $stmt = $db->prepare("
+            SELECT appointment_time FROM appointments
+            WHERE doctor_id = ? AND appointment_date = ?
+            AND status IN ('pending', 'confirmed', 'reschedule_requested')
+            UNION
+            SELECT requested_time FROM appointments
+            WHERE doctor_id = ? AND requested_date = ?
+            AND status = 'reschedule_requested'
+            AND requested_time IS NOT NULL
+        ");
+        $stmt->execute([$doctor_id, $date, $doctor_id, $date]);
+    }
     $booked_slots_raw = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
     // Format booked slots for easy lookup (e.g., '09:30:00' -> '09:30')

@@ -29,6 +29,19 @@ try {
     // Get all specializations for dropdown
     $stmt = $db->query("SELECT id, name FROM specializations ORDER BY name");
     $specializations = $stmt->fetchAll();
+
+    // Get doctor's reviews
+    $stmt = $db->prepare("
+        SELECT r.*, u.first_name, u.last_name, a.appointment_date
+        FROM reviews r
+        LEFT JOIN users u ON r.patient_id = u.id
+        LEFT JOIN appointments a ON r.appointment_id = a.id
+        WHERE r.doctor_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT 10
+    ");
+    $stmt->execute([$doctor_id]);
+    $reviews = $stmt->fetchAll();
 } catch (PDOException $e) {
     $error = 'Database error: ' . $e->getMessage();
 }
@@ -43,9 +56,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $qualification = trim($_POST['qualification']);
     $bio = trim($_POST['bio']);
     $consultation_fee = $_POST['consultation_fee'];
-    
+    $languages = trim($_POST['languages']);
+
+    // Validation
     if (empty($first_name) || empty($last_name)) {
         $error = 'First name and last name are required.';
+    } elseif (!preg_match('/^[a-zA-Z\s]+$/', $first_name) || !preg_match('/^[a-zA-Z\s]+$/', $last_name)) {
+        $error = 'First name and last name can only contain letters and spaces.';
+    } elseif (!empty($phone) && !preg_match('/^[0-9]{10}$/', $phone)) {
+        $error = 'Phone number must be exactly 10 digits.';
+    } elseif (empty($specialization_id)) {
+        $error = 'Specialization is required.';
+    } elseif (!empty($experience_years) && ($experience_years < 0 || $experience_years > 60)) {
+        $error = 'Experience years must be between 0 and 60.';
+    } elseif (!empty($consultation_fee) && ($consultation_fee < 0 || $consultation_fee > 100000)) {
+        $error = 'Consultation fee must be between 0 and 100000.';
     } else {
         try {
             $db->beginTransaction();
@@ -99,16 +124,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($profile['specialization_id']) {
                 $stmt = $db->prepare("
                     UPDATE doctor_profiles
-                    SET specialization_id = ?, experience_years = ?, qualification = ?, bio = ?, consultation_fee = ?
+                    SET specialization_id = ?, experience_years = ?, qualification = ?, bio = ?, consultation_fee = ?, languages = ?
                     WHERE user_id = ?
                 ");
-                $stmt->execute([$specialization_id, $experience_years, $qualification, $bio, $consultation_fee, $doctor_id]);
+                $stmt->execute([$specialization_id, $experience_years, $qualification, $bio, $consultation_fee, $languages, $doctor_id]);
             } else {
                 $stmt = $db->prepare("
-                    INSERT INTO doctor_profiles (user_id, specialization_id, experience_years, qualification, bio, consultation_fee)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO doctor_profiles (user_id, specialization_id, experience_years, qualification, bio, consultation_fee, languages)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$doctor_id, $specialization_id, $experience_years, $qualification, $bio, $consultation_fee]);
+                $stmt->execute([$doctor_id, $specialization_id, $experience_years, $qualification, $bio, $consultation_fee, $languages]);
             }
             
             $db->commit();
@@ -222,8 +247,12 @@ require_once '../includes/header.php';
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="phone" class="form-label">Phone</label>
-                                <input type="tel" class="form-control" id="phone" name="phone" 
-                                       value="<?php echo htmlspecialchars($profile['phone'] ?? ''); ?>">
+                                <input type="tel" class="form-control" id="phone" name="phone"
+                                       value="<?php echo htmlspecialchars($profile['phone'] ?? ''); ?>"
+                                       pattern="[0-9]{10}"
+                                       title="Phone number must be exactly 10 digits"
+                                       maxlength="10">
+                                <small class="text-muted">10 digit mobile number</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -246,15 +275,17 @@ require_once '../includes/header.php';
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="experience_years" class="form-label">Years of Experience</label>
-                                <input type="number" class="form-control" id="experience_years" name="experience_years" 
-                                       value="<?php echo $profile['experience_years'] ?? ''; ?>" min="0" max="50">
+                                <input type="number" class="form-control" id="experience_years" name="experience_years"
+                                       value="<?php echo $profile['experience_years'] ?? ''; ?>" min="0" max="60">
+                                <small class="text-muted">0-60 years</small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="consultation_fee" class="form-label">Consultation Fee (₹)</label>
-                                <input type="number" class="form-control" id="consultation_fee" name="consultation_fee" 
-                                       value="<?php echo $profile['consultation_fee'] ?? ''; ?>" min="0" step="0.01">
+                                <input type="number" class="form-control" id="consultation_fee" name="consultation_fee"
+                                       value="<?php echo $profile['consultation_fee'] ?? ''; ?>" min="0" max="100000" step="1">
+                                <small class="text-muted">₹0 - ₹100,000</small>
                             </div>
                         </div>
                     </div>
@@ -263,7 +294,15 @@ require_once '../includes/header.php';
                         <label for="qualification" class="form-label">Qualification</label>
                         <textarea class="form-control" id="qualification" name="qualification" rows="3"><?php echo htmlspecialchars($profile['qualification'] ?? ''); ?></textarea>
                     </div>
-                    
+
+                    <div class="mb-3">
+                        <label for="languages" class="form-label">Languages</label>
+                        <input type="text" class="form-control" id="languages" name="languages"
+                               value="<?php echo htmlspecialchars($profile['languages'] ?? ''); ?>"
+                               placeholder="e.g., English, Hindi, Spanish">
+                        <small class="text-muted">Enter languages separated by commas</small>
+                    </div>
+
                     <div class="mb-3">
                         <label for="bio" class="form-label">Bio</label>
                         <textarea class="form-control" id="bio" name="bio" rows="4"><?php echo htmlspecialchars($profile['bio'] ?? ''); ?></textarea>
@@ -306,7 +345,32 @@ require_once '../includes/header.php';
                     <li><strong>Specialization:</strong> <?php echo htmlspecialchars($profile['specialization_name'] ?? 'Not specified'); ?></li>
                     <li><strong>Experience:</strong> <?php echo $profile['experience_years'] ? $profile['experience_years'] . ' years' : 'Not specified'; ?></li>
                     <li><strong>License:</strong> <?php echo htmlspecialchars($profile['license_number'] ?? 'Not specified'); ?></li>
+                    <?php if (!empty($profile['qualification'])): ?>
+                    <li><strong>Qualification:</strong> <?php echo nl2br(htmlspecialchars($profile['qualification'])); ?></li>
+                    <?php endif; ?>
+                    <?php if (!empty($profile['languages'])): ?>
+                    <li><strong>Languages:</strong> <?php echo htmlspecialchars($profile['languages']); ?></li>
+                    <?php endif; ?>
                 </ul>
+
+                <hr>
+
+                <h6>Patient Ratings</h6>
+                <div class="mb-3">
+                    <?php if ($profile['total_reviews'] > 0): ?>
+                        <div class="text-center">
+                            <div class="h2 text-warning mb-0">
+                                <i class="fas fa-star"></i> <?php echo number_format($profile['rating'], 1); ?>
+                            </div>
+                            <small class="text-muted"><?php echo $profile['total_reviews']; ?> review<?php echo $profile['total_reviews'] != 1 ? 's' : ''; ?></small>
+                        </div>
+                    <?php else: ?>
+                        <div class="text-center text-muted">
+                            <i class="far fa-star"></i>
+                            <p class="mb-0 small">No reviews yet</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
                 <hr>
 
@@ -321,6 +385,50 @@ require_once '../includes/header.php';
                 </div>
             </div>
         </div>
+
+        <!-- Reviews Card -->
+        <?php if (!empty($reviews)): ?>
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Recent Patient Reviews</h5>
+            </div>
+            <div class="card-body">
+                <?php foreach ($reviews as $review): ?>
+                    <div class="review-item mb-3 pb-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <strong>
+                                    <?php
+                                    if ($review['is_anonymous']) {
+                                        echo 'Anonymous Patient';
+                                    } else {
+                                        echo htmlspecialchars($review['first_name'] . ' ' . substr($review['last_name'], 0, 1) . '.');
+                                    }
+                                    ?>
+                                </strong>
+                                <div class="text-warning">
+                                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                                        <i class="fas fa-star<?php echo $i <= $review['rating'] ? '' : '-o'; ?>"></i>
+                                    <?php endfor; ?>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <?php echo date('M d, Y', strtotime($review['created_at'])); ?>
+                            </small>
+                        </div>
+                        <?php if (!empty($review['review_text'])): ?>
+                            <p class="mb-0 text-muted"><?php echo htmlspecialchars($review['review_text']); ?></p>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+                <?php if ($profile['total_reviews'] > 10): ?>
+                    <div class="text-center">
+                        <small class="text-muted">Showing 10 most recent reviews</small>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -346,6 +454,84 @@ function previewImage(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
+
+// Phone number validation - only allow numbers
+const phoneInput = document.getElementById('phone');
+phoneInput.addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+    if (this.value.length > 10) {
+        this.value = this.value.slice(0, 10);
+    }
+
+    if (this.value.length > 0) {
+        if (this.value.length === 10) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    } else {
+        this.classList.remove('is-invalid', 'is-valid');
+    }
+});
+
+// Experience years validation
+const experienceInput = document.getElementById('experience_years');
+experienceInput.addEventListener('input', function() {
+    const value = parseInt(this.value);
+    if (this.value.length > 0) {
+        if (value >= 0 && value <= 60) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    }
+});
+
+// Consultation fee validation
+const feeInput = document.getElementById('consultation_fee');
+feeInput.addEventListener('input', function() {
+    const value = parseInt(this.value);
+    if (this.value.length > 0) {
+        if (value >= 0 && value <= 100000) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    }
+});
+
+// Form submission validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const phone = phoneInput.value;
+    if (phone.length > 0 && phone.length !== 10) {
+        e.preventDefault();
+        alert('Phone number must be exactly 10 digits!');
+        phoneInput.focus();
+        return false;
+    }
+
+    const experience = parseInt(experienceInput.value);
+    if (experienceInput.value.length > 0 && (experience < 0 || experience > 60)) {
+        e.preventDefault();
+        alert('Experience years must be between 0 and 60!');
+        experienceInput.focus();
+        return false;
+    }
+
+    const fee = parseInt(feeInput.value);
+    if (feeInput.value.length > 0 && (fee < 0 || fee > 100000)) {
+        e.preventDefault();
+        alert('Consultation fee must be between ₹0 and ₹100,000!');
+        feeInput.focus();
+        return false;
+    }
+});
 </script>
 
 <?php require_once '../includes/footer.php'; ?>

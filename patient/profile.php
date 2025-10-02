@@ -41,8 +41,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $medical_history = trim($_POST['medical_history']);
     $allergies = trim($_POST['allergies']);
 
+    // Validation
     if (empty($first_name) || empty($last_name)) {
         $error = 'First name and last name are required.';
+    } elseif (!preg_match('/^[a-zA-Z\s]+$/', $first_name) || !preg_match('/^[a-zA-Z\s]+$/', $last_name)) {
+        $error = 'First name and last name can only contain letters and spaces.';
+    } elseif (!empty($phone) && !preg_match('/^[0-9]{10}$/', $phone)) {
+        $error = 'Phone number must be exactly 10 digits.';
+    } elseif (!empty($emergency_phone) && !preg_match('/^[0-9]{10}$/', $emergency_phone)) {
+        $error = 'Emergency phone number must be exactly 10 digits.';
+    } elseif (!empty($date_of_birth)) {
+        $dob = new DateTime($date_of_birth);
+        $today = new DateTime();
+        $age = $today->diff($dob)->y;
+        if ($age < 0 || $age > 150) {
+            $error = 'Please enter a valid date of birth.';
+        }
     } else {
         try {
             $db->beginTransaction();
@@ -156,7 +170,11 @@ require_once '../includes/header.php';
                             <div class="mb-3">
                                 <label for="phone" class="form-label">Phone</label>
                                 <input type="tel" class="form-control" id="phone" name="phone"
-                                       value="<?php echo htmlspecialchars($profile['phone'] ?? ''); ?>">
+                                       value="<?php echo htmlspecialchars($profile['phone'] ?? ''); ?>"
+                                       pattern="[0-9]{10}"
+                                       title="Phone number must be exactly 10 digits"
+                                       maxlength="10">
+                                <small class="text-muted">10 digit mobile number</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -194,7 +212,11 @@ require_once '../includes/header.php';
                             <div class="mb-3">
                                 <label for="emergency_phone" class="form-label">Emergency Contact Phone</label>
                                 <input type="tel" class="form-control" id="emergency_phone" name="emergency_phone"
-                                       value="<?php echo htmlspecialchars($profile['emergency_phone'] ?? ''); ?>">
+                                       value="<?php echo htmlspecialchars($profile['emergency_phone'] ?? ''); ?>"
+                                       pattern="[0-9]{10}"
+                                       title="Phone number must be exactly 10 digits"
+                                       maxlength="10">
+                                <small class="text-muted">10 digit mobile number</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -263,5 +285,78 @@ require_once '../includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+// Phone number validation - only allow numbers
+const phoneInput = document.getElementById('phone');
+const emergencyPhoneInput = document.getElementById('emergency_phone');
+
+function validatePhoneInput(input) {
+    input.addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length > 10) {
+            this.value = this.value.slice(0, 10);
+        }
+
+        if (this.value.length > 0) {
+            if (this.value.length === 10) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            }
+        } else {
+            this.classList.remove('is-invalid', 'is-valid');
+        }
+    });
+}
+
+validatePhoneInput(phoneInput);
+validatePhoneInput(emergencyPhoneInput);
+
+// Date of birth validation
+const dobInput = document.getElementById('date_of_birth');
+dobInput.addEventListener('change', function() {
+    if (this.value) {
+        const dob = new Date(this.value);
+        const today = new Date();
+        const age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+
+        if (age < 0 || age > 150) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+            alert('Please enter a valid date of birth');
+        } else {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    }
+});
+
+// Form submission validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const phone = phoneInput.value;
+    if (phone.length > 0 && phone.length !== 10) {
+        e.preventDefault();
+        alert('Phone number must be exactly 10 digits!');
+        phoneInput.focus();
+        return false;
+    }
+
+    const emergencyPhone = emergencyPhoneInput.value;
+    if (emergencyPhone.length > 0 && emergencyPhone.length !== 10) {
+        e.preventDefault();
+        alert('Emergency phone number must be exactly 10 digits!');
+        emergencyPhoneInput.focus();
+        return false;
+    }
+});
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

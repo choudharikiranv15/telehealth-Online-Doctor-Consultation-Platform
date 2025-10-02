@@ -30,18 +30,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $role = $_POST['role'];
     $phone = trim($_POST['phone']);
     $specialization_id = isset($_POST['specialization_id']) ? (int)$_POST['specialization_id'] : null;
-    
+
     // Validation
     if (empty($username) || empty($email) || empty($password) || empty($first_name) || empty($last_name) || empty($role)) {
         $error = 'Please fill in all required fields.';
-    } elseif ($role === 'doctor' && empty($specialization_id)) {
-        $error = 'Please select a specialization for doctor registration.';
-    } elseif ($password !== $confirm_password) {
-        $error = 'Passwords do not match.';
-    } elseif (strlen($password) < 6) {
-        $error = 'Password must be at least 6 characters long.';
+    } elseif (strlen($username) < 3) {
+        $error = 'Username must be at least 3 characters long.';
+    } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+        $error = 'Username can only contain letters, numbers, and underscores.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
+    } elseif (!empty($phone) && !preg_match('/^[0-9]{10}$/', $phone)) {
+        $error = 'Phone number must be exactly 10 digits.';
+    } elseif ($password !== $confirm_password) {
+        $error = 'Passwords do not match.';
+    } elseif (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters long.';
+    } elseif (!preg_match('/[A-Za-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+        $error = 'Password must contain at least one letter and one number.';
+    } elseif (!preg_match('/^[a-zA-Z\s]+$/', $first_name) || !preg_match('/^[a-zA-Z\s]+$/', $last_name)) {
+        $error = 'First name and last name can only contain letters and spaces.';
+    } elseif ($role === 'doctor' && empty($specialization_id)) {
+        $error = 'Please select a specialization for doctor registration.';
     } else {
         require_once 'includes/db_connect.php';
         
@@ -133,13 +143,20 @@ require_once 'includes/header.php';
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="username" class="form-label">Username *</label>
-                                    <input type="text" class="form-control" id="username" name="username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required>
+                                    <input type="text" class="form-control" id="username" name="username"
+                                           value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
+                                           pattern="[a-zA-Z0-9_]{3,}"
+                                           title="Username must be at least 3 characters and contain only letters, numbers, and underscores"
+                                           minlength="3" required>
+                                    <small class="text-muted">At least 3 characters (letters, numbers, underscore)</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Email *</label>
-                                    <input type="email" class="form-control" id="email" name="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                                    <input type="email" class="form-control" id="email" name="email"
+                                           value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                                    <small class="text-muted">Enter a valid email address</small>
                                 </div>
                             </div>
                         </div>
@@ -148,22 +165,31 @@ require_once 'includes/header.php';
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password *</label>
-                                    <input type="password" class="form-control" id="password" name="password" required>
+                                    <input type="password" class="form-control" id="password" name="password"
+                                           minlength="8" required>
+                                    <small class="text-muted">At least 8 characters with letters and numbers</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="confirm_password" class="form-label">Confirm Password *</label>
-                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                           minlength="8" required>
+                                    <small class="text-muted">Must match password</small>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="phone" class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>">
+                                    <input type="tel" class="form-control" id="phone" name="phone"
+                                           value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>"
+                                           pattern="[0-9]{10}"
+                                           title="Phone number must be exactly 10 digits"
+                                           maxlength="10">
+                                    <small class="text-muted">10 digit mobile number</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -268,6 +294,115 @@ document.getElementById('role').addEventListener('change', function() {
 });
 // Trigger change on page load in case of form resubmission with errors
 document.getElementById('role').dispatchEvent(new Event('change'));
+
+// Real-time password validation
+const passwordInput = document.getElementById('password');
+const confirmPasswordInput = document.getElementById('confirm_password');
+
+function validatePassword() {
+    const password = passwordInput.value;
+    const confirmPassword = confirmPasswordInput.value;
+
+    // Check password strength
+    if (password.length > 0) {
+        const hasLetter = /[A-Za-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasMinLength = password.length >= 8;
+
+        if (!hasMinLength || !hasLetter || !hasNumber) {
+            passwordInput.classList.add('is-invalid');
+            passwordInput.classList.remove('is-valid');
+        } else {
+            passwordInput.classList.remove('is-invalid');
+            passwordInput.classList.add('is-valid');
+        }
+    }
+
+    // Check password match
+    if (confirmPassword.length > 0) {
+        if (password === confirmPassword && password.length >= 8) {
+            confirmPasswordInput.classList.remove('is-invalid');
+            confirmPasswordInput.classList.add('is-valid');
+        } else {
+            confirmPasswordInput.classList.add('is-invalid');
+            confirmPasswordInput.classList.remove('is-valid');
+        }
+    }
+}
+
+passwordInput.addEventListener('input', validatePassword);
+confirmPasswordInput.addEventListener('input', validatePassword);
+
+// Phone number validation - only allow numbers
+const phoneInput = document.getElementById('phone');
+phoneInput.addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+    if (this.value.length > 10) {
+        this.value = this.value.slice(0, 10);
+    }
+
+    if (this.value.length > 0) {
+        if (this.value.length === 10) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    } else {
+        this.classList.remove('is-invalid', 'is-valid');
+    }
+});
+
+// Username validation
+const usernameInput = document.getElementById('username');
+usernameInput.addEventListener('input', function() {
+    const pattern = /^[a-zA-Z0-9_]{3,}$/;
+    if (this.value.length > 0) {
+        if (pattern.test(this.value)) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    }
+});
+
+// Form submission validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const password = passwordInput.value;
+    const confirmPassword = confirmPasswordInput.value;
+
+    if (password !== confirmPassword) {
+        e.preventDefault();
+        alert('Passwords do not match!');
+        confirmPasswordInput.focus();
+        return false;
+    }
+
+    if (password.length < 8) {
+        e.preventDefault();
+        alert('Password must be at least 8 characters long!');
+        passwordInput.focus();
+        return false;
+    }
+
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+        e.preventDefault();
+        alert('Password must contain at least one letter and one number!');
+        passwordInput.focus();
+        return false;
+    }
+
+    const phone = phoneInput.value;
+    if (phone.length > 0 && phone.length !== 10) {
+        e.preventDefault();
+        alert('Phone number must be exactly 10 digits!');
+        phoneInput.focus();
+        return false;
+    }
+});
 </script>
 
 <?php require_once 'includes/footer.php'; ?>

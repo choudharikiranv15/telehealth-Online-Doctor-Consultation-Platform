@@ -13,6 +13,21 @@ require_once dirname(__FILE__) . '/../includes/db_connect.php';
 $doctor_id = $_SESSION['user_id'];
 $error = '';
 
+// Get doctor profile info
+try {
+    $stmt = $db->prepare("
+        SELECT u.first_name, u.last_name, u.profile_picture, dp.qualification, dp.languages, dp.specialization_id, s.name as specialization_name
+        FROM users u
+        LEFT JOIN doctor_profiles dp ON u.id = dp.user_id
+        LEFT JOIN specializations s ON dp.specialization_id = s.id
+        WHERE u.id = ?
+    ");
+    $stmt->execute([$doctor_id]);
+    $doctor_profile = $stmt->fetch();
+} catch (PDOException $e) {
+    error_log("Error fetching doctor profile: " . $e->getMessage());
+}
+
 // Get doctor's appointments
 try {
     $stmt = $db->prepare("
@@ -245,6 +260,51 @@ require_once dirname(__FILE__) . '/../includes/header.php';
     </div>
     
     <div class="col-md-4">
+        <!-- Profile Info Card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Profile Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <?php if (!empty($doctor_profile['profile_picture'])): ?>
+                        <img src="<?php echo getPageUrl($doctor_profile['profile_picture']); ?>"
+                             alt="Profile Picture"
+                             class="rounded-circle"
+                             style="width: 80px; height: 80px; object-fit: cover;">
+                    <?php else: ?>
+                        <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-user-md text-white fa-2x"></i>
+                        </div>
+                    <?php endif; ?>
+                    <h6 class="mt-2 mb-0"><?php echo htmlspecialchars($doctor_profile['first_name'] . ' ' . $doctor_profile['last_name']); ?></h6>
+                    <?php if (!empty($doctor_profile['specialization_name'])): ?>
+                        <small class="text-muted"><?php echo htmlspecialchars($doctor_profile['specialization_name']); ?></small>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($doctor_profile['qualification'])): ?>
+                <div class="mb-2">
+                    <strong><i class="fas fa-graduation-cap me-2 text-primary"></i>Qualification:</strong>
+                    <div class="ms-4 text-muted small"><?php echo nl2br(htmlspecialchars($doctor_profile['qualification'])); ?></div>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($doctor_profile['languages'])): ?>
+                <div class="mb-2">
+                    <strong><i class="fas fa-language me-2 text-primary"></i>Languages:</strong>
+                    <div class="ms-4 text-muted small"><?php echo htmlspecialchars($doctor_profile['languages']); ?></div>
+                </div>
+                <?php endif; ?>
+
+                <a href="<?php echo getPageUrl('doctor/profile.php'); ?>" class="btn btn-outline-primary btn-sm w-100 mt-2">
+                    <i class="fas fa-edit me-1"></i>Edit Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Actions Card -->
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Quick Actions</h5>

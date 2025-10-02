@@ -21,10 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         try {
             // This query now works because the `username` column exists.
-            $stmt = $db->prepare("SELECT id, username, password, role, first_name, last_name FROM users WHERE username = ? OR email = ?");
+            $stmt = $db->prepare("SELECT id, username, email, password, role, first_name, last_name FROM users WHERE username = ? OR email = ?");
             $stmt->execute([$username, $username]);
             $user = $stmt->fetch();
-            
+
+            // Debug logging
+            if ($user) {
+                error_log("Login attempt - User found: ID={$user['id']}, Username={$user['username']}, Email={$user['email']}");
+                error_log("Login attempt - Password hash starts with: " . substr($user['password'], 0, 20));
+                error_log("Login attempt - Password verify result: " . (password_verify($password, $user['password']) ? 'SUCCESS' : 'FAILED'));
+            } else {
+                error_log("Login attempt - User NOT found for: $username");
+            }
+
             // This now works because the admin password in the DB is properly hashed.
             if ($user && password_verify($password, $user['password'])) {
                 $_SESSION['user_id'] = $user['id'];
@@ -32,11 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['first_name'] = $user['first_name'];
                 $_SESSION['last_name'] = $user['last_name'];
-                
+
                 header("Location: dashboard.php");
                 exit();
             } else {
-                $error = 'Invalid username/email or password.';
+                if ($user) {
+                    $error = 'Invalid username/email or password. (Password mismatch)';
+                } else {
+                    $error = 'Invalid username/email or password. (User not found)';
+                }
             }
         } catch (PDOException $e) {
             // *** IMPORTANT DEBUGGING CHANGE ***
@@ -71,13 +84,18 @@ require_once 'includes/header.php';
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" name="password" required>
+                        <div class="text-end mt-1">
+                            <a href="<?php echo getPageUrl('forgot_password.php'); ?>" class="text-decoration-none small">
+                                <i class="fas fa-key me-1"></i>Forgot Password?
+                            </a>
+                        </div>
                     </div>
-                    
+
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Login</button>
                     </div>
                 </form>
-                
+
                 <div class="text-center mt-3">
                     <p>Don't have an account? <a href="register.php">Register here</a></p>
                 </div>

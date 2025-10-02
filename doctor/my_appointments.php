@@ -43,12 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $stmt = $db->prepare("
                 UPDATE appointments
-                SET status = 'cancelled',
-                    doctor_notes = CONCAT(COALESCE(doctor_notes, ''), ?)
+                SET status = 'rejected',
+                    rejection_reason = ?,
+                    reviewed_by = ?,
+                    reviewed_at = NOW()
                 WHERE id = ? AND doctor_id = ? AND status = 'pending'
             ");
-            $reason_text = !empty($reason) ? "Rejected: " . $reason . "\n" : "Appointment rejected by doctor.\n";
-            $stmt->execute([$reason_text, $appointment_id, $doctor_id]);
+            $stmt->execute([$reason, $doctor_id, $appointment_id, $doctor_id]);
 
             if ($stmt->rowCount() > 0) {
                 $message = 'Appointment rejected successfully.';
@@ -65,6 +66,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $message = 'Appointment marked as completed.';
         } catch (PDOException $e) {
             $error = 'Error updating appointment.';
+        }
+    } elseif ($_POST['action'] === 'approve_reschedule') {
+        $response_notes = isset($_POST['reschedule_response']) ? trim($_POST['reschedule_response']) : '';
+        try {
+            // Check if new time slot is available
+            $stmt = $db->prepare("SELECT requested_date, requested_time FROM appointments WHERE id = ? AND doctor_id = ?");
+            $stmt->execute([$appointment_id, $doctor_id]);
+            $reschedule_data = $stmt->fetch();
+
+            if ($reschedule_data) {
+                // Check for conflicts
+                $stmt = $db->prepare("
+                    SELECT id FROM appointments
+                    WHERE doctor_id = ?
+                    AND appointment_date = ?
+                    AND appointment_time = ?
+                    AND status IN ('pending', 'confirmed')
+                    AND id != ?
+                ");
+                $stmt->execute([
+                    $doctor_id,
+                    $reschedule_data['requested_date'],
+                    $reschedule_data['requested_time'],
+                    $appointment_id
+                ]);
+
+                if ($stmt->fetch()) {
+                    $error = 'Cannot approve: The requested time slot is no longer available.';
+                } else {
+                    // Approve reschedule
+                    $stmt = $db->prepare("
+                        UPDATE appointments
+                        SET appointment_date = requested_date,
+                            appointment_time = requested_time,
+                            status = 'confirmed',
+                            reschedule_response = ?,
+                            requested_date = NULL,
+                            requested_time = NULL
+                        WHERE id = ? AND doctor_id = ? AND status = 'reschedule_requested'
+                    ");
+                    $response_text = !empty($response_notes) ? $response_notes : 'Reschedule request approved';
+                    $stmt->execute([$response_text, $appointment_id, $doctor_id]);
+
+                    if ($stmt->rowCount() > 0) {
+                        $message = 'Reschedule request approved successfully.';
+                    } else {
+                        $error = 'Reschedule request not found or already processed.';
+                    }
+                }
+            }
+        } catch (PDOException $e) {
+            $error = 'Error approving reschedule: ' . $e->getMessage();
+        }
+    } elseif ($_POST['action'] === 'reject_reschedule') {
+        $rejection_reason = isset($_POST['reschedule_rejection_reason']) ? trim($_POST['reschedule_rejection_reason']) : '';
+        try {
+            $stmt = $db->prepare("
+                UPDATE appointments
+                SET status = 'confirmed',
+                    reschedule_response = ?,
+                    requested_date = NULL,
+                    requested_time = NULL
+                WHERE id = ? AND doctor_id = ? AND status = 'reschedule_requested'
+            ");
+            $response_text = !empty($rejection_reason) ? 'Rejected: ' . $rejection_reason : 'Reschedule request rejected';
+            $stmt->execute([$response_text, $appointment_id, $doctor_id]);
+
+            if ($stmt->rowCount() > 0) {
+                $message = 'Reschedule request rejected. Original appointment time maintained.';
+            } else {
+                $error = 'Reschedule request not found or already processed.';
+            }
+        } catch (PDOException $e) {
+            $error = 'Error rejecting reschedule: ' . $e->getMessage();
         }
     }
 }
@@ -129,8 +204,10 @@ require_once '../includes/header.php';
                     <option value="">All Statuses</option>
                     <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
                     <option value="confirmed" <?php echo $status_filter === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
+                    <option value="reschedule_requested" <?php echo $status_filter === 'reschedule_requested' ? 'selected' : ''; ?>>Reschedule Requested</option>
                     <option value="completed" <?php echo $status_filter === 'completed' ? 'selected' : ''; ?>>Completed</option>
                     <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                    <option value="rejected" <?php echo $status_filter === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -177,34 +254,49 @@ require_once '../includes/header.php';
                                     <br><small class="text-muted"><?php echo htmlspecialchars($appointment['email']); ?></small>
                                 </td>
                                 <td>
-                                    <?php 
+                                    <?php
                                         $date = $appointment['appointment_date'];
                                         $time = $appointment['appointment_time'];
-                                        
+
                                         if ($date && $date !== '0000-00-00') {
                                             echo '<strong>' . date('M d, Y', strtotime($date)) . '</strong>';
                                         } else {
                                             echo '<span class="text-muted">Invalid Date</span>';
                                         }
-                                        
+
                                         echo '<br>';
-                                        
+
                                         if ($time && $time !== '00:00:00') {
                                             echo date('h:i A', strtotime($time));
                                         } else {
                                             echo '<span class="text-muted">Invalid Time</span>';
                                         }
+
+                                        // Show requested reschedule date/time if exists
+                                        if ($appointment['status'] === 'reschedule_requested' && !empty($appointment['requested_date'])) {
+                                            echo '<br><span class="badge bg-info mt-1">Requested: ' .
+                                                 date('M d, Y', strtotime($appointment['requested_date'])) . ' ' .
+                                                 date('h:i A', strtotime($appointment['requested_time'])) . '</span>';
+                                        }
                                     ?>
                                 </td>
                                 <td><?php echo $appointment['duration']; ?> minutes</td>
                                 <td>
-                                    <span class="badge bg-<?php 
-                                        echo $appointment['status'] === 'completed' ? 'success' : 
-                                            ($appointment['status'] === 'cancelled' ? 'danger' : 
-                                            ($appointment['status'] === 'confirmed' ? 'primary' : 'warning')); 
+                                    <span class="badge bg-<?php
+                                        echo $appointment['status'] === 'completed' ? 'success' :
+                                            ($appointment['status'] === 'cancelled' ? 'secondary' :
+                                            ($appointment['status'] === 'rejected' ? 'danger' :
+                                            ($appointment['status'] === 'confirmed' ? 'primary' :
+                                            ($appointment['status'] === 'reschedule_requested' ? 'info' : 'warning'))));
                                     ?>">
-                                        <?php echo ucfirst($appointment['status']); ?>
+                                        <?php echo ucfirst(str_replace('_', ' ', $appointment['status'])); ?>
                                     </span>
+                                    <?php if ($appointment['status'] === 'rejected' && !empty($appointment['rejection_reason'])): ?>
+                                        <br><small class="text-muted" title="<?php echo htmlspecialchars($appointment['rejection_reason']); ?>">
+                                            <i class="fas fa-info-circle"></i>
+                                            <?php echo htmlspecialchars(substr($appointment['rejection_reason'], 0, 30)) . (strlen($appointment['rejection_reason']) > 30 ? '...' : ''); ?>
+                                        </small>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if ($appointment['symptoms']): ?>
@@ -221,6 +313,15 @@ require_once '../includes/header.php';
                                             </button>
                                             <button type="button" class="btn btn-danger btn-sm" onclick="showRejectionModal(<?php echo $appointment['id']; ?>, '<?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?>')">
                                                 <i class="fas fa-times me-1"></i>Reject
+                                            </button>
+                                        <?php endif; ?>
+
+                                        <?php if ($appointment['status'] === 'reschedule_requested'): ?>
+                                            <button type="button" class="btn btn-success btn-sm" onclick="showRescheduleApprovalModal(<?php echo $appointment['id']; ?>, '<?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?>', '<?php echo date('M d, Y h:i A', strtotime($appointment['requested_date'] . ' ' . $appointment['requested_time'])); ?>', '<?php echo htmlspecialchars($appointment['reschedule_reason']); ?>')">
+                                                <i class="fas fa-check me-1"></i>Approve Reschedule
+                                            </button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="showRescheduleRejectionModal(<?php echo $appointment['id']; ?>, '<?php echo htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?>')">
+                                                <i class="fas fa-times me-1"></i>Reject Reschedule
                                             </button>
                                         <?php endif; ?>
 
@@ -246,8 +347,12 @@ require_once '../includes/header.php';
                                             </a>
                                         <?php endif; ?>
 
-                                        <?php if ($appointment['status'] === 'cancelled'): ?>
-                                            <span class="badge bg-secondary">Rejected</span>
+                                        <?php if ($appointment['status'] === 'rejected'): ?>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showRejectionDetailsModal('<?php echo htmlspecialchars($appointment['rejection_reason'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-info-circle me-1"></i>View Rejection
+                                            </button>
+                                        <?php elseif ($appointment['status'] === 'cancelled'): ?>
+                                            <span class="badge bg-secondary">Cancelled</span>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -333,6 +438,90 @@ require_once '../includes/header.php';
     </div>
 </div>
 
+<!-- Reschedule Approval Modal -->
+<div class="modal fade" id="rescheduleApprovalModal" tabindex="-1" aria-labelledby="rescheduleApprovalModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="rescheduleApprovalModalLabel">
+                    <i class="fas fa-calendar-check me-2"></i>Approve Reschedule Request
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="rescheduleApprovalForm">
+                <div class="modal-body">
+                    <input type="hidden" name="appointment_id" id="rescheduleApprovalAppointmentId">
+                    <input type="hidden" name="action" value="approve_reschedule">
+
+                    <div class="mb-3">
+                        <p>Reschedule request from <strong id="rescheduleApprovalPatientName"></strong></p>
+                        <div class="alert alert-info">
+                            <strong>Requested New Date/Time:</strong><br>
+                            <span id="rescheduleNewDateTime"></span>
+                        </div>
+                        <div class="alert alert-warning">
+                            <strong>Patient's Reason:</strong><br>
+                            <span id="rescheduleReason"></span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reschedule_response" class="form-label">Response Message (Optional)</label>
+                        <textarea class="form-control" id="reschedule_response" name="reschedule_response" rows="2"
+                                  placeholder="Add a message for the patient..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i>Approve Reschedule
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reschedule Rejection Modal -->
+<div class="modal fade" id="rescheduleRejectionModal" tabindex="-1" aria-labelledby="rescheduleRejectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rescheduleRejectionModalLabel">
+                    <i class="fas fa-times-circle me-2"></i>Reject Reschedule Request
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="rescheduleRejectionForm">
+                <div class="modal-body">
+                    <input type="hidden" name="appointment_id" id="rescheduleRejectionAppointmentId">
+                    <input type="hidden" name="action" value="reject_reschedule">
+
+                    <div class="mb-3">
+                        <p>Reject reschedule request from <strong id="rescheduleRejectionPatientName"></strong>?</p>
+                        <div class="alert alert-warning">
+                            The original appointment time will be maintained.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reschedule_rejection_reason" class="form-label">Reason for Rejection *</label>
+                        <textarea class="form-control" id="reschedule_rejection_reason" name="reschedule_rejection_reason" rows="3"
+                                  placeholder="Please provide a reason for rejecting this reschedule request..." required></textarea>
+                        <small class="text-muted">This reason will be visible to the patient.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-1"></i>Reject Reschedule
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 function showApprovalModal(appointmentId, patientName) {
     document.getElementById('approvalAppointmentId').value = appointmentId;
@@ -352,6 +541,26 @@ function showRejectionModal(appointmentId, patientName) {
     rejectionModal.show();
 }
 
+function showRescheduleApprovalModal(appointmentId, patientName, newDateTime, reason) {
+    document.getElementById('rescheduleApprovalAppointmentId').value = appointmentId;
+    document.getElementById('rescheduleApprovalPatientName').textContent = patientName;
+    document.getElementById('rescheduleNewDateTime').textContent = newDateTime;
+    document.getElementById('rescheduleReason').textContent = reason;
+    document.getElementById('reschedule_response').value = '';
+
+    var rescheduleApprovalModal = new bootstrap.Modal(document.getElementById('rescheduleApprovalModal'));
+    rescheduleApprovalModal.show();
+}
+
+function showRescheduleRejectionModal(appointmentId, patientName) {
+    document.getElementById('rescheduleRejectionAppointmentId').value = appointmentId;
+    document.getElementById('rescheduleRejectionPatientName').textContent = patientName;
+    document.getElementById('reschedule_rejection_reason').value = '';
+
+    var rescheduleRejectionModal = new bootstrap.Modal(document.getElementById('rescheduleRejectionModal'));
+    rescheduleRejectionModal.show();
+}
+
 // Form validation
 document.getElementById('rejectionForm').addEventListener('submit', function(e) {
     const reason = document.getElementById('rejection_reason').value.trim();
@@ -361,6 +570,56 @@ document.getElementById('rejectionForm').addEventListener('submit', function(e) 
         return false;
     }
 });
+
+document.getElementById('rescheduleRejectionForm').addEventListener('submit', function(e) {
+    const reason = document.getElementById('reschedule_rejection_reason').value.trim();
+    if (reason.length < 10) {
+        e.preventDefault();
+        alert('Please provide a detailed reason (at least 10 characters) for rejecting the reschedule request.');
+        return false;
+    }
+});
+
+function showRejectionDetailsModal(reason) {
+    const modalHtml = `
+        <div class="modal fade" id="rejectionDetailsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title"><i class="fas fa-times-circle me-2"></i>Rejection Reason</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger mb-0">
+                            ${reason}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('rejectionDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('rejectionDetailsModal'));
+    modal.show();
+
+    // Clean up after modal is hidden
+    document.getElementById('rejectionDetailsModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
 </script>
 
 <?php require_once '../includes/footer.php'; ?>

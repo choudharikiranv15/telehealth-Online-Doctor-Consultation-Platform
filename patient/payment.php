@@ -23,10 +23,11 @@ if ($appointment_id > 0 && !$appointment_data) {
     try {
         $stmt = $db->prepare("
             SELECT a.*, u.first_name as doctor_first_name, u.last_name as doctor_last_name,
-                   dp.specialization, dp.consultation_fee
+                   s.name as specialization, dp.consultation_fee
             FROM appointments a
             JOIN users u ON a.doctor_id = u.id
             LEFT JOIN doctor_profiles dp ON u.id = dp.user_id
+            LEFT JOIN specializations s ON dp.specialization_id = s.id
             WHERE a.id = ? AND a.patient_id = ? AND a.payment_status = 'pending'
         ");
         $stmt->execute([$appointment_id, $patient_id]);

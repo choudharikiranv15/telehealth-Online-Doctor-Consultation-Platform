@@ -23,10 +23,11 @@ if (!$appointment_id || !$transaction_id) {
 try {
     $stmt = $db->prepare("
         SELECT a.*, u.first_name as doctor_first_name, u.last_name as doctor_last_name,
-               dp.specialization, p.transaction_id, p.payment_method, p.created_at as payment_date
+               s.name as specialization, p.transaction_id, p.payment_method, p.created_at as payment_date
         FROM appointments a
         JOIN users u ON a.doctor_id = u.id
         LEFT JOIN doctor_profiles dp ON u.id = dp.user_id
+        LEFT JOIN specializations s ON dp.specialization_id = s.id
         LEFT JOIN payments p ON a.id = p.appointment_id
         WHERE a.id = ? AND a.patient_id = ? AND p.transaction_id = ?
     ");
