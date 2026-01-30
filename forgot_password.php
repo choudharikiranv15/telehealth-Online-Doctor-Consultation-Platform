@@ -71,8 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            </div>';
             }
         } catch (PDOException $e) {
-            $error = 'Database error: ' . $e->getMessage();
-            error_log("Forgot password error: " . $e->getMessage());
+            $error = 'Database error. Please try again.';
         }
     }
 }

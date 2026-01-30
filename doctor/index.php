@@ -25,7 +25,7 @@ try {
     $stmt->execute([$doctor_id]);
     $doctor_profile = $stmt->fetch();
 } catch (PDOException $e) {
-    error_log("Error fetching doctor profile: " . $e->getMessage());
+    // Error fetching doctor profile
 }
 
 // Get doctor's appointments
@@ -78,13 +78,9 @@ try {
     ");
     $stmt->execute([$doctor_id]);
     $needs_prescription = $stmt->fetch()['needs_prescription'];
-    
-    // Debug logging
-    error_log("Doctor ID: $doctor_id, Appointments found: " . count($appointments) . ", Today: $today_appointments, Pending: $pending_appointments");
-    
+
 } catch (PDOException $e) {
-    $error = 'Database error: ' . $e->getMessage();
-    error_log("Doctor dashboard error: " . $e->getMessage());
+    $error = 'Database error. Please try again.';
 }
 
 require_once dirname(__FILE__) . '/../includes/header.php';

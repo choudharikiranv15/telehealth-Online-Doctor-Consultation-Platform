@@ -47,11 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($_SESSION['role'] === 'doctor') {
                 // Handle empty specialization_id - convert to NULL if empty
                 $final_specialization_id = (empty($specialization_id) || $specialization_id === '') ? null : $specialization_id;
-                
-                // Debug logging
-                error_log("Profile Update Debug - Original specialization_id: " . var_export($specialization_id, true) . 
-                         ", Final specialization_id: " . var_export($final_specialization_id, true));
-                
+
                 $stmt = $db->prepare(
                     "UPDATE doctor_profiles SET specialization_id = ?, experience_years = ?, consultation_fee = ? WHERE user_id = ?"
                 );
@@ -72,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (PDOException $e) {
             $db->rollBack();
-            $error = "Database error: Could not update profile. " . $e->getMessage();
+            $error = "Database error: Could not update profile. Please try again.";
         }
     }
 }
@@ -95,7 +91,7 @@ try {
         die("Error: Could not find user data.");
     }
 } catch (PDOException $e) {
-    die("Database error: Could not fetch user data. " . $e->getMessage());
+    die("Database error: Could not fetch user data. Please try again.");
 }
 
 

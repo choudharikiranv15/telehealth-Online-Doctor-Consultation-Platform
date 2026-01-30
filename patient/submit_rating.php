@@ -82,16 +82,12 @@ try {
     ");
     $stmt->execute([$doctor_id, $doctor_id, $doctor_id]);
 
-    // Log for debugging
-    error_log("Rating submitted successfully for doctor_id: $doctor_id, rating: $rating");
-
     echo json_encode([
         'success' => true,
         'message' => 'Thank you for your feedback!'
     ]);
 
 } catch (PDOException $e) {
-    error_log("Rating submission error: " . $e->getMessage());
     echo json_encode([
         'success' => false,
         'message' => 'An error occurred while submitting your rating. Please try again.'

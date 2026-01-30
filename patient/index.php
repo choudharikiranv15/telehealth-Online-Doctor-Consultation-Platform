@@ -53,13 +53,9 @@ try {
     ");
     $stmt->execute([$patient_id]);
     $completed_appointments = $stmt->fetch()['completed_count'];
-    
-    // Debug logging
-    error_log("Patient ID: $patient_id, Appointments found: " . count($appointments) . ", Upcoming: $upcoming_appointments, Completed: $completed_appointments");
-    
+
 } catch (PDOException $e) {
-    $error = 'Database error: ' . $e->getMessage();
-    error_log("Patient dashboard error: " . $e->getMessage());
+    $error = 'Database error. Please try again.';
 }
 
 require_once dirname(__FILE__) . '/../includes/header.php';

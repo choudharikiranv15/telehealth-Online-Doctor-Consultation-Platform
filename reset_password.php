@@ -36,9 +36,6 @@ if (!isset($_GET['token']) || empty($_GET['token'])) {
         $token_data = $stmt->fetch();
 
         if ($token_data) {
-            // Log for debugging
-            error_log("Token validation - Expires: {$token_data['expires_at']}, Current: {$token_data['server_time']}, Minutes remaining: {$token_data['minutes_remaining']}");
-
             // Check if token is still valid (not expired)
             if ($token_data['minutes_remaining'] > 0) {
                 $token_valid = true;
@@ -59,8 +56,7 @@ if (!isset($_GET['token']) || empty($_GET['token'])) {
             }
         }
     } catch (PDOException $e) {
-        $error = 'Database error: ' . $e->getMessage();
-        error_log("Token validation error: " . $e->getMessage());
+        $error = 'Database error. Please try again.';
     }
 }
 
@@ -80,15 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_valid) {
             // Hash the new password
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
 
-            // Debug: Log the operation
-            error_log("Resetting password for user_id: $user_id");
-
             // Update user's password
             $stmt = $db->prepare("UPDATE users SET password = ? WHERE id = ?");
             $result = $stmt->execute([$hashed_password, $user_id]);
             $rows_affected = $stmt->rowCount();
-
-            error_log("Password update - Rows affected: $rows_affected");
 
             if ($rows_affected > 0) {
                 // Mark token as used
@@ -99,11 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_valid) {
                 $token_valid = false; // Prevent form from showing again
             } else {
                 $error = 'Failed to update password. User not found.';
-                error_log("Password reset failed - no rows affected for user_id: $user_id");
             }
         } catch (PDOException $e) {
-            $error = 'Database error while resetting password: ' . $e->getMessage();
-            error_log("Password reset error: " . $e->getMessage());
+            $error = 'Database error while resetting password. Please try again.';
         }
     }
 }

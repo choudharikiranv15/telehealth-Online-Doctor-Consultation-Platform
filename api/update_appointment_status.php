@@ -75,7 +75,6 @@ try {
         ]);
     } catch (PDOException $e) {
         // Ignore if appointment_history table doesn't exist yet
-        error_log("Could not log appointment history: " . $e->getMessage());
     }
     
     if ($stmt->rowCount() > 0) {
@@ -86,6 +85,6 @@ try {
     
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['error' => 'Database error. Please try again.']);
 }
 ?>
