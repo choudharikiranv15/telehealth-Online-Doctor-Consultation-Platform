@@ -90,10 +90,8 @@ class VideoCall {
             this.setupEventListeners();
             
             this.isInitialized = true;
-            console.log('Video call initialized successfully');
-            
+
         } catch (error) {
-            console.error('Failed to initialize video call:', error);
             this.showError('Failed to initialize video call. Please try again.');
         }
     }
@@ -125,42 +123,34 @@ class VideoCall {
         // Participant joined
         this.api.addEventListeners({
             participantJoined: (event) => {
-                console.log('Participant joined:', event);
                 this.onParticipantJoined(event);
             },
-            
+
             participantLeft: (event) => {
-                console.log('Participant left:', event);
                 this.onParticipantLeft(event);
             },
-            
+
             audioMuteStatusChanged: (event) => {
-                console.log('Audio mute status changed:', event);
                 this.onAudioMuteStatusChanged(event);
             },
-            
+
             videoMuteStatusChanged: (event) => {
-                console.log('Video mute status changed:', event);
                 this.onVideoMuteStatusChanged(event);
             },
-            
+
             participantKickedOut: (event) => {
-                console.log('Participant kicked out:', event);
                 this.onParticipantKickedOut(event);
             },
-            
+
             conferenceJoined: (event) => {
-                console.log('Conference joined:', event);
                 this.onConferenceJoined(event);
             },
-            
+
             conferenceLeft: (event) => {
-                console.log('Conference left:', event);
                 this.onConferenceLeft(event);
             },
-            
+
             readyToClose: (event) => {
-                console.log('Ready to close:', event);
                 this.onReadyToClose(event);
             }
         });
@@ -259,12 +249,12 @@ class VideoCall {
         try {
             const participants = this.api.getNumberOfParticipants();
             const participantList = document.getElementById('participant-list');
-            
+
             if (participantList) {
                 participantList.innerHTML = `<strong>Participants: ${participants + 1}</strong>`;
             }
         } catch (error) {
-            console.error('Failed to update participant list:', error);
+            // Failed to update participant list
         }
     }
     
@@ -313,7 +303,7 @@ class VideoCall {
         try {
             this.api.executeCommand('toggleAudio');
         } catch (error) {
-            console.error('Failed to toggle mute:', error);
+            // Failed to toggle mute
         }
     }
     
@@ -326,7 +316,7 @@ class VideoCall {
         try {
             this.api.executeCommand('toggleVideo');
         } catch (error) {
-            console.error('Failed to toggle video:', error);
+            // Failed to toggle video
         }
     }
     
@@ -339,7 +329,7 @@ class VideoCall {
         try {
             this.api.executeCommand('toggleShareScreen');
         } catch (error) {
-            console.error('Failed to share screen:', error);
+            // Failed to share screen
         }
     }
     
@@ -353,7 +343,6 @@ class VideoCall {
             this.api.executeCommand('startRecording');
             this.showNotification('Recording started', 'info');
         } catch (error) {
-            console.error('Failed to start recording:', error);
             this.showError('Failed to start recording');
         }
     }
@@ -368,7 +357,6 @@ class VideoCall {
             this.api.executeCommand('stopRecording');
             this.showNotification('Recording stopped', 'info');
         } catch (error) {
-            console.error('Failed to stop recording:', error);
             this.showError('Failed to stop recording');
         }
     }
@@ -382,7 +370,7 @@ class VideoCall {
         try {
             this.api.executeCommand('raiseHand');
         } catch (error) {
-            console.error('Failed to raise hand:', error);
+            // Failed to raise hand
         }
     }
     
@@ -395,7 +383,7 @@ class VideoCall {
         try {
             this.api.executeCommand('lowerHand');
         } catch (error) {
-            console.error('Failed to lower hand:', error);
+            // Failed to lower hand
         }
     }
     
@@ -410,7 +398,6 @@ class VideoCall {
                 this.updateAppointmentStatus('completed');
                 this.api.executeCommand('hangup');
             } catch (error) {
-                console.error('Failed to end call:', error);
                 this.updateAppointmentStatus('completed');
                 this.cleanup();
             }
@@ -427,7 +414,6 @@ class VideoCall {
             try {
                 this.api.executeCommand('hangup');
             } catch (error) {
-                console.error('Failed to leave call:', error);
                 this.cleanup();
             }
         }
@@ -442,7 +428,6 @@ class VideoCall {
         try {
             return this.api.getStats();
         } catch (error) {
-            console.error('Failed to get stats:', error);
             return null;
         }
     }
@@ -452,7 +437,6 @@ class VideoCall {
      */
     async updateAppointmentStatus(status) {
         if (!this.options.appointmentId) {
-            console.log('No appointment ID available for status update');
             return;
         }
 
@@ -473,16 +457,11 @@ class VideoCall {
             const result = await response.json();
 
             if (result.success) {
-                console.log('Appointment status updated to:', status);
                 this.showNotification('Appointment status updated', 'success');
-            } else {
-                console.log('Failed to update appointment status:', result.message);
             }
 
             return result;
         } catch (error) {
-            console.error('Error updating appointment status:', error);
-            // Don't show error notification to user, just log it
             return { success: false, error: error.message };
         }
     }
@@ -495,7 +474,7 @@ class VideoCall {
             try {
                 this.api.dispose();
             } catch (error) {
-                console.error('Failed to dispose API:', error);
+                // Failed to dispose API
             }
             this.api = null;
         }
@@ -503,8 +482,6 @@ class VideoCall {
         this.isInitialized = false;
         this.localStream = null;
         this.remoteStreams = [];
-
-        console.log('Video call cleaned up');
     }
 }
 
@@ -620,9 +597,8 @@ class VideoCallManager {
 
     // Handle video call errors
     handleError(error, context = '') {
-        console.error(`Video Call Error ${context}:`, error);
         this.showNotification(
-            `Video call error: ${error.message || 'Unknown error occurred'}`, 
+            `Video call error: ${error.message || 'Unknown error occurred'}`,
             'error'
         );
     }

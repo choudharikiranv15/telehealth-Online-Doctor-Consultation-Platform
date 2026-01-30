@@ -6,7 +6,8 @@
 define('METERED_DOMAIN', 'ihealth.metered.live');
 
 // Optional: Your Metered API key for advanced features
-define('METERED_API_KEY', '9_nZAmsd5HDuhheM3c0aLrRyH16mDxbUTaANapVQO6EJSC3M'); // Add your API key here if you have one
+// Set this via environment variable or replace with your actual key
+define('METERED_API_KEY', getenv('METERED_API_KEY') ?: 'YOUR_METERED_API_KEY_HERE');
 
 // Video call settings
 define('METERED_MAX_PARTICIPANTS', 2); // For 1-on-1 consultations

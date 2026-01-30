@@ -2,17 +2,8 @@
 header('Content-Type: application/json');
 require_once 'config.php';
 
-// Debug: Log session info
-error_log("=== APPOINTMENT STATUS UPDATE DEBUG ===");
-error_log("Session status: " . session_status());
-error_log("Session ID: " . session_id());
-error_log("User ID in session: " . ($_SESSION['user_id'] ?? 'NOT SET'));
-error_log("Role in session: " . ($_SESSION['role'] ?? 'NOT SET'));
-error_log("All session data: " . print_r($_SESSION, true));
-
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    error_log("❌ UNAUTHORIZED - No user_id in session");
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized - No user session']);
     exit();
@@ -23,11 +14,7 @@ require_once 'includes/db_connect.php';
 $user_id = $_SESSION['user_id'];
 $input = json_decode(file_get_contents('php://input'), true);
 
-// Debug logging
-error_log("Appointment status update attempt - User ID: $user_id, Input: " . json_encode($input));
-
 if (!$input || !isset($input['appointment_id']) || !isset($input['status'])) {
-    error_log("Missing parameters - Input: " . json_encode($input));
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Missing required parameters']);
     exit();
@@ -58,14 +45,11 @@ try {
         exit();
     }
     
-    // First, get the current appointment details for logging
+    // First, get the current appointment details
     $stmt = $db->prepare("SELECT status FROM appointments WHERE id = ?");
     $stmt->execute([$appointment_id]);
     $current_appointment = $stmt->fetch();
     $old_status = $current_appointment['status'] ?? 'unknown';
-
-    // Update appointment status with proper logging
-    error_log("Updating appointment $appointment_id from '$old_status' to '$status' by user $user_id");
 
     $stmt = $db->prepare("
         UPDATE appointments
@@ -73,8 +57,6 @@ try {
         WHERE id = ?
     ");
     $result = $stmt->execute([$status, $user_id, $appointment_id]);
-
-    error_log("Update result: " . ($result ? 'SUCCESS' : 'FAILED') . ", Rows affected: " . $stmt->rowCount());
 
     // Log the status change in appointment_history if table exists
     try {
@@ -92,7 +74,6 @@ try {
         ]);
     } catch (PDOException $e) {
         // Ignore if appointment_history table doesn't exist yet
-        error_log("Could not log appointment history: " . $e->getMessage());
     }
     
     if ($stmt->rowCount() > 0) {
@@ -108,8 +89,7 @@ try {
                 ");
                 $stmt->execute([$appointment_id, 'telehealth_' . $appointment_id]);
             } catch (PDOException $e) {
-                // Log error but don't fail the main update
-                error_log("Error creating video call record: " . $e->getMessage());
+                // Don't fail the main update if video call record creation fails
             }
         }
         

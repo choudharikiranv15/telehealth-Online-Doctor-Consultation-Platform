@@ -169,7 +169,7 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                         </td>
                                         <td>
                                             <?php if ($appointment['status'] === 'confirmed' || $appointment['status'] === 'active'): ?>
-                                                <a href="<?php echo getPageUrl('video_call_webrtc.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-success btn-sm">
+                                                <a href="<?php echo getPageUrl('video_call_jitsi.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-success btn-sm">
                                                     <i class="fas fa-video me-1"></i>Start Video Call
                                                 </a>
                                             <?php elseif ($appointment['status'] === 'completed'): ?>

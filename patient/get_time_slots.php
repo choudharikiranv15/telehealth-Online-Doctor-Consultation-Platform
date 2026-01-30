@@ -49,10 +49,6 @@ try {
     $working_start_time = substr($doctor_availability['availability_start'], 0, 5); // Format: HH:MM
     $working_end_time = substr($doctor_availability['availability_end'], 0, 5);
 
-    // Debug: Log doctor's working hours
-    error_log("DEBUG: Doctor $doctor_id working hours: $working_start_time to $working_end_time");
-    error_log("DEBUG: Current time: " . date('H:i') . ", Doctor end time: $working_end_time");
-
     // 4. Get all appointments already booked for this doctor on this date.
     // Check both original time slots and requested time slots
     // Exclude the current appointment if we're rescheduling

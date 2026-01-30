@@ -25,9 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duration = isset($_POST['duration']) ? (int)$_POST['duration'] : 30; // Default duration
     $symptoms = trim($_POST['symptoms']);
     $notes = trim($_POST['notes']);
-    
-    // DEBUG: Log what we received
-    error_log("APPOINTMENT BOOKING DEBUG - Received doctor_id: $doctor_id from patient: $patient_id for date: $appointment_date at time: $appointment_time");
 
     // Validation
     if (empty($doctor_id) || empty($appointment_date) || empty($appointment_time) || empty($symptoms)) {
@@ -59,14 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$doctor_id]);
                 $doctor_profile = $stmt->fetch();
                 $consultation_fee = $doctor_profile ? $doctor_profile['consultation_fee'] : 0.00;
-                
-                // DEBUG: Log which doctor we're booking for
-                if ($doctor_profile) {
-                    error_log("APPOINTMENT BOOKING DEBUG - Booking for Doctor: {$doctor_profile['first_name']} {$doctor_profile['last_name']} (ID: $doctor_id)");
-                } else {
-                    error_log("APPOINTMENT BOOKING DEBUG - ERROR: No doctor found for ID: $doctor_id");
-                }
-                
+
                 // Insert appointment with payment pending status
                 $stmt = $db->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, symptoms, notes, payment_amount, payment_status) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, 'pending')");
                 $result = $stmt->execute([$patient_id, $doctor_id, $appointment_date, $appointment_time, $symptoms, $notes, $consultation_fee]);
@@ -88,28 +78,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'specialization' => null // Will be fetched in payment page
                     ];
 
-                    // Debug: Log successful booking
-                    error_log("Appointment created successfully: ID={$appointment_id}, redirecting to payment");
-
                     // Redirect to payment page
                     header("Location: " . getPageUrl('patient/payment.php?appointment_id=' . $appointment_id));
                     exit();
                 } else {
                     $error = "Failed to create appointment. Please try again.";
-                    error_log("Appointment booking failed: No rows affected. Patient={$patient_id}, Doctor={$doctor_id}, Date={$appointment_date}, Time={$appointment_time}");
                 }
 
             }
         } catch (PDOException $e) {
-            // Log the error for debugging
-            error_log("Appointment booking error: " . $e->getMessage() . " | Code: " . $e->getCode());
-            
             // Check if it's a duplicate entry error (UNIQUE constraint violation)
             if ($e->getCode() == 23000 && strpos($e->getMessage(), 'unique_appointment') !== false) {
                 $error = 'This time slot is already booked by another patient. Please select a different time slot.';
             } else {
-                // This will now show the REAL database error for debugging.
-                $error = 'Database Error: ' . $e->getMessage();
+                $error = 'Database error. Please try again.';
             }
         }
     }
@@ -136,16 +118,8 @@ $sql = "SELECT u.id as id, u.first_name, u.last_name, u.email, u.phone, u.city, 
 
 try {
     $doctors = $db->query($sql)->fetchAll();
-    
-    // Debug: Log doctor IDs being loaded for dropdown
-    error_log("=== DOCTOR DROPDOWN DEBUG ===");
-    foreach ($doctors as $doctor) {
-        error_log("Doctor ID: {$doctor['id']}, Name: {$doctor['first_name']} {$doctor['last_name']}, Specialization: {$doctor['specialization']}");
-    }
-    error_log("============================");
-    
 } catch (PDOException $e) {
-    die("Fatal Error: Could not fetch doctor list. " . $e->getMessage());
+    die("Error: Could not fetch doctor list. Please try again later.");
 }
 // --- END: CORRECTED DOCTOR QUERY ---
 
@@ -174,15 +148,6 @@ require_once dirname(__FILE__) . '/../includes/header.php';
 
 <?php if ($success): ?>
     <div class="alert alert-success"><?php echo $success; ?></div>
-<?php endif; ?>
-
-<?php if (isset($_POST['doctor_id'])): ?>
-    <div class="alert alert-info">
-        <strong>DEBUG - Form Submission Received:</strong><br>
-        Doctor ID: <?php echo htmlspecialchars($_POST['doctor_id']); ?><br>
-        Date: <?php echo htmlspecialchars($_POST['appointment_date']); ?><br>
-        Time: <?php echo htmlspecialchars($_POST['appointment_time']); ?>
-    </div>
 <?php endif; ?>
 
 <div class="row">
@@ -302,17 +267,8 @@ require_once dirname(__FILE__) . '/../includes/header.php';
 
 <script>
 function selectDoctor(doctorId) {
-    console.log('Selecting doctor with ID:', doctorId);
     document.getElementById('doctor_id').value = doctorId;
-    console.log('Doctor select value set to:', document.getElementById('doctor_id').value);
-    // Trigger the change event to update everything
     document.getElementById('doctor_id').dispatchEvent(new Event('change'));
-    
-    // Show which doctor was selected
-    const selectedOption = document.querySelector('#doctor_id option[value="' + doctorId + '"]');
-    if (selectedOption) {
-        console.log('Selected doctor option text:', selectedOption.textContent);
-    }
 }
 
 function loadTimeSlots() {
@@ -345,7 +301,6 @@ function loadTimeSlots() {
         })
         .catch(error => {
             timeSelect.innerHTML = '<option value="">Error loading slots</option>';
-            console.error('Error fetching time slots:', error);
         });
 }
 
@@ -395,7 +350,6 @@ function updateMinimumDate(doctorId) {
             }
         })
         .catch(error => {
-            console.error('Error checking doctor availability:', error);
             // Fallback to tomorrow
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
@@ -404,18 +358,7 @@ function updateMinimumDate(doctorId) {
 }
 
 function debugFormSubmission() {
-    const doctorId = document.getElementById('doctor_id').value;
-    const doctorSelect = document.getElementById('doctor_id');
-    const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
-    
-    console.log('=== FORM SUBMISSION DEBUG ===');
-    console.log('Doctor ID being submitted:', doctorId);
-    console.log('Selected doctor option text:', selectedOption ? selectedOption.textContent : 'None');
-    console.log('Date:', document.getElementById('appointment_date').value);
-    console.log('Time:', document.getElementById('appointment_time').value);
-    console.log('=============================');
-    
-    return true; // Allow form to submit
+    return true;
 }
 
 // Initialize on page load

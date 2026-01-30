@@ -248,7 +248,7 @@ if (!empty($pending_appointments)):
                                             </button>
                                         </div>
                                     <?php elseif ($appointment['status'] === 'confirmed'): ?>
-                                        <a href="../video_call.php?appointment_id=<?php echo $appointment['id']; ?>"
+                                        <a href="../video_call_jitsi.php?appointment_id=<?php echo $appointment['id']; ?>"
                                            class="btn btn-primary btn-sm">
                                             <i class="fas fa-video"></i> Join Call
                                         </a>

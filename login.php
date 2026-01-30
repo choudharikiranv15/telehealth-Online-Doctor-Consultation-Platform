@@ -24,18 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $db->prepare("SELECT id, username, email, password, role, first_name, last_name FROM users WHERE username = ? OR email = ?");
             $stmt->execute([$username, $username]);
             $user = $stmt->fetch();
-
-            // Debug logging
-            if ($user) {
-                error_log("Login attempt - User found: ID={$user['id']}, Username={$user['username']}, Email={$user['email']}");
-                error_log("Login attempt - Password hash starts with: " . substr($user['password'], 0, 20));
-                error_log("Login attempt - Password verify result: " . (password_verify($password, $user['password']) ? 'SUCCESS' : 'FAILED'));
-            } else {
-                error_log("Login attempt - User NOT found for: $username");
-            }
-
-            // This now works because the admin password in the DB is properly hashed.
             if ($user && password_verify($password, $user['password'])) {
+                // Login successful
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
@@ -45,18 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: dashboard.php");
                 exit();
             } else {
-                if ($user) {
-                    $error = 'Invalid username/email or password. (Password mismatch)';
-                } else {
-                    $error = 'Invalid username/email or password. (User not found)';
-                }
+                $error = 'Invalid username/email or password.';
             }
         } catch (PDOException $e) {
-            // *** IMPORTANT DEBUGGING CHANGE ***
-            // This will now show the REAL database error instead of a generic message.
-            $error = 'Database Error: ' . $e->getMessage();
-            // In production, you would log the error and use the generic message:
-            // $error = 'Database error. Please try again.';
+            $error = 'Database error. Please try again.';
         }
     }
 }

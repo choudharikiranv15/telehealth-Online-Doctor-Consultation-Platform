@@ -95,10 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (PDOException $e) {
             $db->rollBack();
-            // *** IMPORTANT DEBUGGING CHANGE ***
-            $error = 'Database Error: ' . $e->getMessage();
-            // In production, you would log the error and use the generic message:
-            // $error = 'Database error. Please try again.';
+            $error = 'Database error. Please try again.';
         }
     }
 }

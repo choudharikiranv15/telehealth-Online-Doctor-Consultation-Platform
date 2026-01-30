@@ -229,11 +229,11 @@ require_once dirname(__FILE__) . '/../includes/header.php';
                                                     <span class="badge bg-warning text-dark">Needs Approval</span>
                                                 </div>
                                             <?php elseif ($appointment['status'] === 'confirmed'): ?>
-                                                <a href="<?php echo getPageUrl('video_call_webrtc.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-primary btn-sm">
+                                                <a href="<?php echo getPageUrl('video_call_jitsi.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-primary btn-sm">
                                                     <i class="fas fa-video me-1"></i>Start Video Call
                                                 </a>
                                             <?php elseif ($appointment['status'] === 'active'): ?>
-                                                <a href="<?php echo getPageUrl('video_call_webrtc.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-warning btn-sm">
+                                                <a href="<?php echo getPageUrl('video_call_jitsi.php'); ?>?appointment_id=<?php echo $appointment['id']; ?>" class="btn btn-warning btn-sm">
                                                     <i class="fas fa-video me-1"></i>Join Active Call
                                                 </a>
                                             <?php elseif ($appointment['status'] === 'completed'): ?>

@@ -63,7 +63,6 @@ try {
         ]);
     } catch (PDOException $e) {
         // Ignore if table doesn't exist
-        error_log("Could not log appointment history: " . $e->getMessage());
     }
 
     echo json_encode([
